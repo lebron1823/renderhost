@@ -8,9 +8,9 @@ import webserver
 # ─────────────────────────────────────────────
 DISCORD_TOKEN       = os.environ['discordkey']
 ROBLOSECURITY       = os.environ['robloxkey']   # ⚠️ Keep this secret!
-PRIVATE_SERVER_LINK = "YOUR_PRIVATE_SERVER_LINK"    # e.g. https://www.roblox.com/games/...?privateServerLinkCode=...
-PLACE_ID            = 0        # The Place ID of your game
-AUTHORIZED_USER_ID  = 0        # Your Discord user ID (only you can run commands)
+PRIVATE_SERVER_LINK = "https://www.roblox.com/games/142823291/Murder-Mystery-2?privateServerLinkCode=30016825251983207114597289690712"    # e.g. https://www.roblox.com/games/...?privateServerLinkCode=...
+PLACE_ID            = 142823291        # The Place ID of your game
+AUTHORIZED_USER_ID  = 1065774521526800426        # Your Discord user ID (only you can run commands)
 
 # ─────────────────────────────────────────────
 #  BOT SETUP
