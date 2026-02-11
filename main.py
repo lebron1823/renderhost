@@ -16,6 +16,7 @@ AUTHORIZED_USER_ID  = 1065774521526800426        # Your Discord user ID (only yo
 #  BOT SETUP
 # ─────────────────────────────────────────────
 intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 HEADERS = {
