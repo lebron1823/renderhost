@@ -1,14 +1,15 @@
 import discord
 from discord.ext import commands
 import aiohttp
-import webserver
 import os
+import webserver
+
 # ─────────────────────────────────────────────
 #  CONFIG
 # ─────────────────────────────────────────────
 DISCORD_TOKEN        = os.environ["discordkey"]
-ROBLOSECURITY        = os.environ["robloxkey"] # ⚠️ Keep this secret!
-AUTHORIZED_USER_ID   = 1065774521526800426       # Your Discord user ID
+ROBLOSECURITY        = os.environ["robloxkey"]  # ⚠️ Keep this secret!
+AUTHORIZED_USER_ID   = 1065774521526800426
 
 PLACE_ID             = 142823291
 PRIVATE_SERVER_CODE  = "30016825251983207114597289690712"
@@ -56,38 +57,47 @@ async def get_user_id(session: aiohttp.ClientSession, username: str):
     url = "https://users.roblox.com/v1/usernames/users"
     payload = {"usernames": [username], "excludeBannedUsers": False}
     async with session.post(url, json=payload, headers=HEADERS) as resp:
-        print(f"[USER LOOKUP] Status: {resp.status}")
         data = await resp.json()
-        print(f"[USER LOOKUP] Response: {data}")
         users = data.get("data", [])
         if not users:
             return None
         return users[0]["id"]
 
 # ─────────────────────────────────────────────
-#  HELPER: block a user by ID
+#  HELPER: block a user by ID (tries both endpoints)
 # ─────────────────────────────────────────────
 async def block_user(session: aiohttp.ClientSession, csrf: str, user_id: int) -> tuple[bool, str]:
-    url = f"https://accountsettings.roblox.com/v1/users/{user_id}/block"
     headers = {**HEADERS, "X-CSRF-TOKEN": csrf}
-    async with session.post(url, headers=headers) as resp:
+
+    # Try new endpoint first
+    url_new = f"https://apis.roblox.com/user-blocking-api/v1/users/me/blocked-users/{user_id}"
+    async with session.post(url_new, headers=headers) as resp:
         text = await resp.text()
-        print(f"[BLOCK] Status: {resp.status} | Response: {text}")
-        return resp.status == 200, text
+        print(f"[BLOCK v2] Status: {resp.status} | Response: {text}")
+        if resp.status in (200, 204):
+            return True, text
+
+    # Fallback to old endpoint
+    url_old = f"https://accountsettings.roblox.com/v1/users/{user_id}/block"
+    async with session.post(url_old, headers=headers) as resp:
+        text = await resp.text()
+        print(f"[BLOCK v1] Status: {resp.status} | Response: {text}")
+        if resp.status in (200, 204):
+            return True, text
+
+    return False, text
 
 # ─────────────────────────────────────────────
 #  HELPER: get private server ID from link code
 # ─────────────────────────────────────────────
 async def get_private_server_id(session: aiohttp.ClientSession) -> tuple[str | None, str]:
-    """Resolves the privateServerLinkCode to an actual server ID."""
     url = f"https://games.roblox.com/v1/games/{PLACE_ID}/private-servers?privateServerLinkCode={PRIVATE_SERVER_CODE}"
     async with session.get(url, headers=HEADERS) as resp:
         text = await resp.text()
         print(f"[PS LOOKUP] Status: {resp.status} | Response: {text}")
         if resp.status != 200:
             return None, f"Status {resp.status}: {text}"
-        data = await resp.json() if resp.content_type == "application/json" else {}
-        # The response contains the private server details
+        data = await resp.json()
         server_id = data.get("id") or data.get("privateServerId")
         if not server_id:
             return None, f"Could not find server ID in response: {text}"
@@ -99,7 +109,6 @@ async def get_private_server_id(session: aiohttp.ClientSession) -> tuple[str | N
 async def shutdown_private_server(session: aiohttp.ClientSession, csrf: str, server_id: str) -> tuple[bool, str]:
     url = f"https://games.roblox.com/v1/private-servers/{server_id}"
     headers = {**HEADERS, "X-CSRF-TOKEN": csrf}
-    # PATCH to set active=false shuts it down without permanently deleting it
     payload = {"active": False}
     async with session.patch(url, json=payload, headers=headers) as resp:
         text = await resp.text()
@@ -131,16 +140,16 @@ async def block_command(ctx, *, username: str = None):
 
     async with aiohttp.ClientSession() as session:
         csrf = await get_csrf_token(session)
-        print(f"[BLOCK CMD] CSRF token: '{csrf}'")
 
         user_id = await get_user_id(session, username)
         if not user_id:
             await ctx.send(f"❌ Could not find Roblox user **{username}**.")
             return
 
+        await ctx.send(f"⏳ Blocking **{username}** (ID: `{user_id}`)...")
         success, response = await block_user(session, csrf, user_id)
         if success:
-            await ctx.send(f"✅ Successfully blocked **{username}** (ID: `{user_id}`).")
+            await ctx.send(f"✅ Successfully blocked **{username}**!")
         else:
             await ctx.send(f"❌ Failed to block **{username}**. Response: `{response}`")
 
