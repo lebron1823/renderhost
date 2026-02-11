@@ -12,8 +12,8 @@ ROBLOSECURITY        = os.environ["robloxkey"]  # ⚠️ Keep this secret!
 
 AUTHORIZED_ROLE_ID   = 1470992691037737181
 
-PLACE_ID             = 142823291
-PRIVATE_SERVER_ID  = "281054734"
+PLACE_ID             = 1537690962
+PRIVATE_SERVER_ID  = "1167572965"
 
 # ─────────────────────────────────────────────
 #  BOT SETUP
