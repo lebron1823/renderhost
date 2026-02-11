@@ -7,7 +7,7 @@ import webserver
 #  CONFIG — fill these in or use a .env file
 # ─────────────────────────────────────────────
 DISCORD_TOKEN       = os.environ['discordkey']
-ROBLOSECURITY       = os.environ['robloxkey']"   # ⚠️ Keep this secret!
+ROBLOSECURITY       = os.environ['robloxkey']   # ⚠️ Keep this secret!
 PRIVATE_SERVER_LINK = "YOUR_PRIVATE_SERVER_LINK"    # e.g. https://www.roblox.com/games/...?privateServerLinkCode=...
 PLACE_ID            = 0        # The Place ID of your game
 AUTHORIZED_USER_ID  = 0        # Your Discord user ID (only you can run commands)
@@ -141,5 +141,5 @@ async def on_ready():
 # ─────────────────────────────────────────────
 #  RUN
 # ─────────────────────────────────────────────
-webserve.keep_alive()
+webserver.keep_alive()
 bot.run(DISCORD_TOKEN)
