@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import aiohttp
 import webserver
-
+import os
 # ─────────────────────────────────────────────
 #  CONFIG
 # ─────────────────────────────────────────────
