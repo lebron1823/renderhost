@@ -125,29 +125,49 @@ async def get_private_server_id(session: aiohttp.ClientSession) -> tuple[str | N
     return str(PRIVATE_SERVER_ID), ""
 
 # ─────────────────────────────────────────────
-#  HELPER: shutdown private server by ID
+#  HELPER: get the current game instance ID
+# ─────────────────────────────────────────────
+async def get_game_instance_id(session: aiohttp.ClientSession, server_id: str) -> tuple[str | None, str]:
+    url = f"https://games.roblox.com/v1/games/{PLACE_ID}/private-servers"
+    async with session.get(url, headers=HEADERS) as resp:
+        if resp.status != 200:
+            text = await resp.text()
+            return None, f"Status {resp.status}: {text}"
+        data = await resp.json()
+
+        # Find your server
+        servers = data.get("data", [])
+        for server in servers:
+            if str(server.get("vipServerId")) == str(server_id):
+                game_id = server.get("id")  # This is the gameId
+                if game_id:
+                    return game_id, ""
+
+        return None, "Could not find game instance ID"
+
+
+# ─────────────────────────────────────────────
+#  HELPER: shutdown the game instance
 # ─────────────────────────────────────────────
 async def shutdown_private_server(session: aiohttp.ClientSession, csrf: str, server_id: str) -> tuple[bool, str]:
-    url = f"https://games.roblox.com/v1/vip-servers/{server_id}"
+    # First, get the current game instance ID
+    game_id, error = await get_game_instance_id(session, server_id)
+    if not game_id:
+        return False, f"Could not get game instance: {error}"
+
+    # Now send the shutdown request
+    url = "https://apis.roblox.com/matchmaking-api/v1/game-instances/shutdown"
     headers = {**HEADERS, "X-CSRF-TOKEN": csrf}
+    payload = {
+        "placeId": PLACE_ID,
+        "gameId": game_id,
+        "privateServerId": int(server_id)
+    }
 
-    # Step 1: Deactivate (kicks everyone)
-    payload = {"active": False}
-    async with session.patch(url, json=payload, headers=headers) as resp:
+    async with session.post(url, json=payload, headers=headers) as resp:
         text = await resp.text()
-        print(f"[SHUTDOWN] Deactivate Status: {resp.status} | Response: {text}")
-        if resp.status not in (200, 204):
-            return False, f"Failed to deactivate: {text}"
-
-    # Step 2: Reactivate immediately
-    payload = {"active": True}
-    async with session.patch(url, json=payload, headers=headers) as resp:
-        text = await resp.text()
-        print(f"[SHUTDOWN] Reactivate Status: {resp.status} | Response: {text}")
-        if resp.status in (200, 204):
-            return True, ""
-        else:
-            return False, f"Failed to reactivate: {text}"
+        print(f"[SHUTDOWN] Status: {resp.status} | Response: {text}")
+        return resp.status in (200, 204), text
 
 # ─────────────────────────────────────────────
 #  GUARD: only allow the authorized Discord user
