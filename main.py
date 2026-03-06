@@ -45,6 +45,58 @@ def embed_error(title, description):
 def embed_warning(title, description):
     return discord.Embed(title=title, description=description, color=0xFEE75C)
 
+
+NOTIFICATION_CHANNEL_ID = 1470948663948873924  # Replace with your Discord channel ID where you want to be pinged
+
+# ─────────────────────────────────────────────
+#  HELPER: Check if cookie is still valid
+# ─────────────────────────────────────────────
+async def check_cookie_valid(session: aiohttp.ClientSession) -> bool:
+    """Returns True if cookie is valid, False otherwise"""
+    url = "https://users.roblox.com/v1/users/authenticated"
+    try:
+        async with session.get(url, headers=HEADERS) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                return "id" in data  # Valid if we get user data
+            return False
+    except Exception as e:
+        print(f"[COOKIE CHECK] Error: {e}")
+        return False
+
+# ─────────────────────────────────────────────
+#  TASK: Check cookie every 1 hours
+# ─────────────────────────────────────────────
+@tasks.loop(hours=1)
+async def check_cookie_task():
+    print("[COOKIE CHECK] Running hourly cookie validation...")
+    
+    async with aiohttp.ClientSession() as session:
+        is_valid = await check_cookie_valid(session)
+        
+        if not is_valid:
+            # Cookie is invalid - send alert
+            channel = bot.get_channel(NOTIFICATION_CHANNEL_ID)
+            if channel:
+                embed = embed_error(
+                    "🚨 Cookie Expired!",
+                    f"<@{AUTHORIZED_USER_ID}> Your Roblox cookie has expired!\n\n"
+                    "The bot will not work until you update the `ROBLOSECURITY` cookie.\n\n"
+                    "**How to fix:**\n"
+                    "1. Log into Roblox\n"
+                    "2. Get your new .ROBLOSECURITY cookie\n"
+                    "3. Update the bot's config"
+                )
+                await channel.send(embed=embed)
+                print("[COOKIE CHECK] ❌ Cookie invalid - alert sent")
+        else:
+            print("[COOKIE CHECK] ✅ Cookie is still valid")
+
+@check_cookie_task.before_loop
+async def before_check_cookie():
+    await bot.wait_until_ready()
+    print("[COOKIE CHECK] Task started - will run every hour")
+
 # ─────────────────────────────────────────────
 #  HELPER: get CSRF token
 # ─────────────────────────────────────────────
@@ -324,6 +376,25 @@ async def shutdown_command(ctx):
             await ctx.send(embed=embed_error("❌ Shutdown Failed", f"```{message}```"))
 
 # ─────────────────────────────────────────────
+# COMMAND: !checkcookie
+# ─────────────────────────────────────────────
+@bot.command(name="checkcookie")
+async def check_cookie_command(ctx):
+    if not is_authorized(ctx):
+        await ctx.send(embed=embed_error("⛔ Unauthorized", "You are not authorized to use this command."))
+        return
+    
+    await ctx.send(embed=embed_info("🔍 Checking cookie...", "Validating Roblox authentication"))
+    
+    async with aiohttp.ClientSession() as session:
+        is_valid = await check_cookie_valid(session)
+        
+        if is_valid:
+            await ctx.send(embed=embed_success("✅ Cookie Valid", "Your Roblox cookie is working correctly!"))
+        else:
+            await ctx.send(embed=embed_error("❌ Cookie Invalid", "Your Roblox cookie has expired and needs to be updated."))
+
+# ─────────────────────────────────────────────
 #  ERROR HANDLER
 # ─────────────────────────────────────────────
 @bot.event
@@ -348,6 +419,10 @@ async def on_message(message):
 async def on_ready():
     print(f"✅ Logged in as {bot.user} ({bot.user.id})")
     print("Commands ready: !ban | !kick | !shutdown")
+    
+    # Start the cookie check task
+    if not check_cookie_task.is_running():
+        check_cookie_task.start()
 
 # ─────────────────────────────────────────────
 #  RUN
